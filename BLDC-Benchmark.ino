@@ -210,14 +210,8 @@ void MainScreenLoop()
 	
 	long currtime = millis();                 // GET CURRENT TIME
   	
-	if((currtime - prevtime) > 5000 || REV < 5)                  //  IF THERE ARE NO READING FOR 5 SEC , THE SCREEN WILL SHOW MAX RPM
-	{
-		lastMaxRPM = maxRPM;
-		maxRPM = 0;
-		IdleScreen(lastMaxRPM, vin)
-		prevtime = currtime;
-	}
-	else
+	
+	if (REV > 5)
 	{
 		int rev = REV;
 		REV = 0;    
@@ -234,6 +228,16 @@ void MainScreenLoop()
 
 		prevtime = currtime;                        // RESET IDLETIME
 	}
+ else if((currtime - prevtime) > 5000 || REV < 5)                  //  IF THERE ARE NO READING FOR 5 SEC , THE SCREEN WILL SHOW MAX RPM
+ {
+  if(maxRPM > 0)
+  {
+    lastMaxRPM = maxRPM;
+    maxRPM = 0;
+  }
+    IdleScreen(lastMaxRPM, vin);
+    prevtime = currtime;
+  }
 }
   
 void RPMCount()                                
