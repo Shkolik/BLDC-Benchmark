@@ -12,7 +12,7 @@
 		 D4	 -> minus button
 		 
 		 D3  -> trigger signal, 5V max
-		 D2  -> external trigger signal (30/10 div)
+		 D2  -> nc
 		 
 		 A0  -> voltmeter (100\10 div)
 		 A1  -> current sensor
@@ -21,6 +21,7 @@
 */
 
 #include <LiquidCrystal.h>
+#include <Adafruit_TiCoServo.h>
 #include "HX711.h"
 
 #define ADC_VREF_TYPE (1 << REFS0)
@@ -30,6 +31,8 @@
 #define SCK     A2
 #define FACTOR  -361.5
 
+//ESC output
+#define ESC 10
 // 1602 LCD wiring
 #define RS 9
 #define EN 8
@@ -39,8 +42,7 @@
 #define D7 4
 
 // inputs wiring
-#define OPTO 3
-#define EXT 2
+#define EXT 3
 #define LED 13
 #define VIN A0
 #define CIN A1
@@ -49,10 +51,16 @@
 #define DECR 12
 #define INC 11
 #define OPT A4
-#define SEL 10
+#define SEL A5
 
+#define SERVO_MIN 1000 // 1 ms pulse
+#define SERVO_MAX 2000 // 2 ms pulse
+
+Adafruit_TiCoServo  servo; 
 HX711 scale;
 LiquidCrystal lcd(RS, EN, D4, D5, D6, D7);
+
+int throttle = 0;    // variable to store the servo position
 
 //  VOLATILE DATA TYPE TO STORE REVOLUTIONS
 volatile int REV;
@@ -61,10 +69,14 @@ volatile int REV;
 byte mode = 0, bladesCount = 2, screen = 1;
 
 //  DEFINE RPM AND MAXIMUM RPM
-float rpm, thrust, maxThrust, lastMaxThrust, maxCurrent, lastMaxCurrent;
-int maxRPM, lastMaxRPM;
+float rpm, thrust;
 
 unsigned long time; //  DEFINE TIME TAKEN TO COVER ONE REVOLUTION
+
+unsigned long lastUIUpdate;
+unsigned long lastReadingsUpdate;
+
+byte uiPage = 0;
 
 int RPMlen, prevRPM; //  INTEGERS TO STORE LED VALUE AND CURRENT RPM AND PREVIOUS RPM
 
@@ -120,14 +132,7 @@ void MotorTypeSelectLoop()
   else if (readingSel != lastSelState && readingSel == LOW)
   {
     bladesCount = motorTypeIdxs[motorType];
-
-    screen = 0;
-    MainScreen();
-
-    if (mode > 1)
-      attachInterrupt(digitalPinToInterrupt(EXT), RPMCount, RISING); //  ADD A HIGH PRIORITY ACTION ( AN INTERRUPT)  WHEN THE SENSOR GOES FROM LOW TO HIGH
-    else
-      attachInterrupt(digitalPinToInterrupt(OPTO), RPMCount, RISING); //  ADD A HIGH PRIORITY ACTION ( AN INTERRUPT)  WHEN THE SENSOR GOES FROM HIGH TO LOW
+    StartMain();
   }
   // save the reading. Next time through the loop, it'll be the lastButtonState:
   lastIncState = readingInc;
@@ -135,195 +140,76 @@ void MotorTypeSelectLoop()
   lastSelState = readingSel;
 }
 
-void BladesSelectScreen()
+void StartMain()
 {
-  lcd.clear();
-  lcd.print("Blades count: ");
-  lcd.setCursor(0, 1);
-  lcd.print("<--  ");
-  lcd.print(bladesCount, DEC);
-  lcd.print("  -->");
-}
-
-void BladesSelectLoop()
-{
-  //setup blades
-  int readingInc = digitalRead(INC);
-  int readingDec = digitalRead(DECR);
-  int readingSel = digitalRead(SEL);
-
-  if (readingInc != lastIncState && readingInc == LOW)
-  {
-    bladesCount++;
-    BladesSelectScreen();
-  }
-  else if (readingDec != lastDecState && readingDec == LOW && bladesCount > 1)
-  {
-    bladesCount--;
-    BladesSelectScreen();
-  }
-  else if (readingSel != lastSelState && readingSel == LOW)
+  if(screen > 0)
   {
     screen = 0;
-    MainScreen();
 
-    if (mode > 1)
-      attachInterrupt(digitalPinToInterrupt(EXT), RPMCount, RISING); //  ADD A HIGH PRIORITY ACTION ( AN INTERRUPT)  WHEN THE SENSOR GOES FROM LOW TO HIGH
-    else
-      attachInterrupt(digitalPinToInterrupt(OPTO), RPMCount, RISING); //  ADD A HIGH PRIORITY ACTION ( AN INTERRUPT)  WHEN THE SENSOR GOES FROM HIGH TO LOW
+    attachInterrupt(digitalPinToInterrupt(EXT), RPMCount, RISING); //  ADD A HIGH PRIORITY ACTION ( AN INTERRUPT)  WHEN THE SENSOR GOES FROM LOW TO HIGH
   }
-
-  // save the reading. Next time through the loop, it'll be the lastButtonState:
-  lastIncState = readingInc;
-  lastDecState = readingDec;
-  lastSelState = readingSel;
-}
-
-void ModeSelectScreen()
-{
-  lcd.clear();
-  lcd.print("Select mode: ");
-  lcd.setCursor(0, 1);
-  switch (mode)
-  {
-  case 0:
-    lcd.print("<--   OPTO   -->");
-    break;
-  case 1:
-    lcd.print("<--  PHASE   -->");
-    break;
-  case 2:
-    lcd.print("<--   ESC    -->");
-    break;
-  }
-}
-
-void ModeSelectLoop()
-{
-  int readingInc = digitalRead(INC);
-  int readingDec = digitalRead(DECR);
-  int readingSel = digitalRead(SEL);
-
-  if (readingInc != lastIncState && readingInc == LOW && mode < 2)
-  {
-    mode++;
-    ModeSelectScreen();
-  }
-  else if (readingDec != lastDecState && readingDec == LOW && mode >= 2)
-  {
-    mode--;
-    ModeSelectScreen();
-  }
-  else if (readingSel != lastSelState && readingSel == LOW)
-  {
-    screen++;
-
-    switch (mode)
-    {
-    case 0:
-      bladesCount = 2;
-      BladesSelectScreen();
-      break;
-    case 1:
-      bladesCount = 7;
-      MotorTypeSelectScreen();
-      break;
-    case 2:
-      bladesCount = 7;
-      MotorTypeSelectScreen();
-      break;
-    }
-  }
-
-  // save the reading. Next time through the loop, it'll be the lastButtonState:
-  lastIncState = readingInc;
-  lastDecState = readingDec;
-  lastSelState = readingSel;
-}
-
-void ModeSelectStartupLoop()
-{  
-  int readingInc = digitalRead(INC);
-  int readingOpt = digitalRead(OPT);
-
-  if (readingOpt != lastOptState && readingOpt == LOW && readingInc != lastIncState && readingInc == LOW)
-  {
-    screen = 3;
-    mode = 1;
-    MotorTypeSelectScreen();
-  }
-  else if (readingOpt != lastOptState && readingOpt == LOW)
-  {
-    screen = 2;
-    mode = 0;
-    BladesSelectScreen();
-  }
-  else if (readingInc != lastIncState && readingInc == LOW)
-  {
-    screen = 3;
-    mode = 2;
-    MotorTypeSelectScreen();
-  }
-  else if(readingOpt == HIGH && readingInc == HIGH)
-  {
-    ModeSelectScreen();
-  }
-  
-  // save the reading. Next time through the loop, it'll be the lastButtonState:  
-  lastOptState = readingOpt;
-  lastIncState = readingInc;
 }
 
 void MainScreen()
 {
-  lcd.clear();
-  lcd.print("RPM:  VOLT: KV:");
-  lcd.setCursor(0, 1);
-
   int _rpm = (int)rpm;
-  lcd.print(_rpm, DEC);
-  lcd.setCursor(6, 1);
-  lcd.print(voltage, 1);
-  lcd.setCursor(12, 1);
-
   int _kv = (int)(rpm / voltage);
-  lcd.print(_kv, DEC);
+  float _voltage = voltage;
+  float _thrust = thrust;
+  float _current = current;
+  int _throttle = throttle;
 
-  delay(500);
-
-  //second screen
+  // print to serial
+  Serial.print(";G");
+  Serial.print(_throttle);
+  Serial.print(";R");
+  Serial.print(_rpm);
+  Serial.print(";V");
+  Serial.print(_voltage);
+  Serial.print(";A");
+  Serial.print(_current);
+  Serial.print(";T");
+  Serial.print(_thrust);
+  Serial.print(";K");
+  Serial.print(_kv);
+  Serial.println();
+  
   lcd.clear();
-  lcd.print("THRUST:  A:");
-  lcd.setCursor(0, 1);
-  lcd.print(thrust, 1);
-  lcd.setCursor(9, 1);
-  lcd.print(current, 2);
-  delay(500);
+
+  if(uiPage == 0)
+  {
+    lcd.print("RPM:  VOLT: KV:");
+  
+    lcd.setCursor(0, 1);
+  
+    lcd.print(_rpm, DEC);
+    lcd.setCursor(6, 1);
+    lcd.print(_voltage, 1);
+    lcd.setCursor(12, 1);
+    lcd.print(_kv, DEC);
+
+  }
+  else if(uiPage == 1)
+  {
+
+    //second screen
+    lcd.clear();
+    lcd.print("THRUST:  A:");
+    lcd.setCursor(0, 1);
+    lcd.print(_thrust, 1);
+    lcd.setCursor(9, 1);
+    lcd.print(_current, 2);
+  }
+  else
+  {
+    lcd.clear();
+    lcd.print("Throttle pos:");
+    lcd.setCursor(0, 1);
+    lcd.print(throttle, 1);
+  }
 }
 
-void IdleScreen()
-{
-  lcd.clear();
-  lcd.print("RPM:  THR:  A:");
-  lcd.setCursor(0, 1);
-  lcd.print(lastMaxRPM, DEC);
-
-  lcd.setCursor(6, 1);
-  lcd.print(lastMaxThrust, 1);
-
-  lcd.setCursor(12, 1);
-  lcd.print(lastMaxCurrent, 1);
-
-  delay(2000);
-  lcd.clear();
-
-  lcd.print("IDLE STATE");
-  lcd.setCursor(0, 1);
-  lcd.print("READY TO MEASURE");
-  delay(2000);
-}
-
-void MainScreenLoop()
+void GetReadings()
 {
   long currtime = millis(); // GET CURRENT TIME
   if (REV > 5 * bladesCount)
@@ -335,54 +221,23 @@ void MainScreenLoop()
 
     thrust = abs(scale.get_units(5));
 
-    if (thrust > maxThrust)
-        maxThrust = thrust; //  GET THE MAX thrust THROUGHOUT THE RUN
-
     current = (2.5 - (5.0 / 2047.0) * Adc[1] - 0.066) / 0.014;
     if (current < 0.09)
       current = 0.0;
 
-    if (current > maxCurrent)
-        maxCurrent = current; //  GET THE MAX current THROUGHOUT THE RUN
-
+    
     voltage = ((Adc[0] * 5.0) / 2047.0) / (R2 / (R1 + R2));
 
     //statement to quash undesired reading !
     if (voltage < 0.09)
       voltage = 0.0;
 
-    rpm = (60000 / (millis() - time)) * (rev / bladesCount);
-
-    if (rpm > maxRPM)
-      maxRPM = (int)rpm; //  GET THE MAX RPM THROUGHOUT THE RUN
-
+    unsigned long delta = millis() - time;
+    rpm = (60000 / delta) * (rev / bladesCount);
+    
     time = millis();
 
-    MainScreen();
-
     prevtime = currtime; // RESET IDLETIME
-  }
-  else if ((currtime - prevtime) > 5000 || REV < 5 * bladesCount) //  IF THERE ARE NO READING FOR 5 SEC , THE SCREEN WILL SHOW MAX RPM
-  {
-    if (maxRPM > 0)
-    {
-      lastMaxRPM = maxRPM;
-      maxRPM = 0;
-    }
-
-    if (maxThrust > 0)
-    {
-      lastMaxThrust = maxThrust;
-      maxThrust = 0.0;
-    }
-
-    if (maxCurrent > 0)
-    {
-      lastMaxCurrent = maxCurrent;
-      maxCurrent = 0.0;
-    }
-    IdleScreen();
-    prevtime = currtime;
   }
 }
 
@@ -427,7 +282,9 @@ void RPMCount()
 
 void setup()
 {
-  //Serial.begin(9600);   // GET VALUES USING SERIAL MONITOR
+  servo.attach(ESC, SERVO_MIN, SERVO_MAX);  
+  
+  Serial.begin(38400);   // GET VALUES USING SERIAL MONITOR
 
   // INITIATE LCD
   lcd.begin(16, 2);
@@ -445,7 +302,6 @@ void setup()
   pinMode(VIN, INPUT);
   pinMode(CIN, INPUT);
   pinMode(EXT, INPUT);
-  pinMode(OPTO, INPUT);
 
   pinMode(LED, OUTPUT);
 
@@ -468,27 +324,63 @@ void setup()
   time = 0;
 
   
-  // ModeSelectScreen();
-  ModeSelectStartupLoop();
+  MotorTypeSelectScreen();
+  MotorTypeSelectLoop();
   delay(50);
-  ModeSelectStartupLoop();
+  MotorTypeSelectLoop();
 }
 
 void loop()
 {
-  switch (screen)
+  if (screen == 0)
   {
-    case 0:
-      MainScreenLoop();
-      break;
-    case 1:
-      ModeSelectLoop();
-      break;
-    case 2:
-      BladesSelectLoop();
-      break;
-    case 3:
-      MotorTypeSelectLoop();
-      break;
+    unsigned long currentTime = millis();
+    if(millis() - lastReadingsUpdate > 300)
+    {
+        GetReadings();
+        lastReadingsUpdate = millis();
+    }
+    if(millis() - lastUIUpdate > 600)
+    {
+      MainScreen();
+      lastUIUpdate = millis();
+      uiPage++;
+      if(uiPage > 2)
+      {
+        uiPage = 0;
+      }
+    }    
+  }
+  else
+  {
+    MotorTypeSelectLoop();
+  }
+}
+
+void serialEvent() 
+{
+  int input = Serial.read();
+  
+  // set poles count command
+  if(input == 101)
+  {
+    Serial.write(101);
+    input = Serial.read();
+    if(input > 2 && input % 2 == 0)
+    {
+      bladesCount = (int)(input/2);
+      StartMain();
+    }
+  }
+  
+  if(input < 0 || input > 100)
+  {
+    input = 0;
+  }
+
+  if(input != throttle)
+  {
+    throttle = input;
+    servo.write(map(throttle, 0, 100, 0, 180));
   }
 }
