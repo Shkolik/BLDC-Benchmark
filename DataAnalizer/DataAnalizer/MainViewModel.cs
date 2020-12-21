@@ -209,6 +209,7 @@ namespace DataAnalizer
 					var data = await Task.Run(() =>
 					{
 						var sb = new StringBuilder("Throttle,Rpm,Voltage,Current,Thrust,KV");
+						sb.AppendLine();
 						foreach (var item in History)
 						{
 							sb.AppendLine(item.ToCsvString());
@@ -307,13 +308,13 @@ namespace DataAnalizer
 					//send settings
 					if (Connected && PolesCount != 0)
 					{
-						var buff = new byte[] { 101, (byte)PolesCount };
 						try
 						{
-							_SerialPort.Write(buff, 0, 1);
+							_SerialPort.Write(new byte[] { 101 }, 0, 1);
+							Thread.Sleep(100);
 							if (_SerialPort.ReadByte() == 101)
 							{
-								_SerialPort.Write(buff, 1, 1);
+								_SerialPort.Write(new byte[] { (byte)PolesCount }, 0, 1);
 							}
 						}
 						catch (Exception)

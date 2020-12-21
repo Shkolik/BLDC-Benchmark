@@ -70,6 +70,15 @@ byte mode = 0, bladesCount = 2, screen = 1;
 
 //  DEFINE RPM AND MAXIMUM RPM
 float rpm, thrust;
+float voltage = 0.0;
+float current = 0.0;
+
+float rpmBuff[3] = {0.0, 0.0, 0.0};
+float voltageBuff[3] = {0.0, 0.0, 0.0};
+float currentBuff[3] = {0.0, 0.0, 0.0};
+float thrustBuff[3] = {0.0, 0.0, 0.0};
+
+byte buffIdx = 0;
 
 unsigned long time; //  DEFINE TIME TAKEN TO COVER ONE REVOLUTION
 
@@ -92,8 +101,7 @@ byte lastOptState = 1;
 
 long Adc[2];
 
-float voltage = 0.0;
-float current = 0.0;
+
 
 float R1 = 100000.0; // resistance of R1 (100K) -see text!
 float R2 = 10600.0;  // resistance of R2 (10K) - see text!
@@ -115,6 +123,8 @@ void MotorTypeSelectScreen()
 
 void MotorTypeSelectLoop()
 {
+  if(screen > 0)
+  {
   int readingInc = digitalRead(INC);
   int readingDec = digitalRead(DECR);
   int readingSel = digitalRead(SEL);
@@ -138,6 +148,7 @@ void MotorTypeSelectLoop()
   lastIncState = readingInc;
   lastDecState = readingDec;
   lastSelState = readingSel;
+  }
 }
 
 void StartMain()
@@ -152,13 +163,21 @@ void StartMain()
 
 void MainScreen()
 {
+  /*
   int _rpm = (int)rpm;
   int _kv = (int)(rpm / voltage);
   float _voltage = voltage;
   float _thrust = thrust;
   float _current = current;
   int _throttle = throttle;
+*/
 
+  int _rpm = (int)((rpmBuff[0] + rpmBuff[1] + rpmBuff[2])/3);
+  int _kv = (int)((rpmBuff[0] + rpmBuff[1] + rpmBuff[2]) / (voltageBuff[0] + voltageBuff[1] + voltageBuff[2]));
+  float _voltage = (voltageBuff[0] + voltageBuff[1] + voltageBuff[2])/3;
+  float _thrust = (thrustBuff[0] + thrustBuff[1] + thrustBuff[2])/3;
+  float _current = (currentBuff[0] + currentBuff[1] + currentBuff[2])/3;
+  int _throttle = throttle;
   // print to serial
   Serial.print(";G");
   Serial.print(_throttle);
@@ -219,12 +238,18 @@ void GetReadings()
 
     getADC();
 
-    thrust = abs(scale.get_units(5));
+    thrust = abs(scale.get_units(3));
+    if(thrust < 0)
+      thrust = 0;
+      
+    thrustBuff[buffIdx] = thrust;
 
+    
     current = (2.5 - (5.0 / 2047.0) * Adc[1] - 0.066) / 0.014;
     if (current < 0.09)
       current = 0.0;
 
+    currentBuff[buffIdx] = current;
     
     voltage = ((Adc[0] * 5.0) / 2047.0) / (R2 / (R1 + R2));
 
@@ -232,11 +257,19 @@ void GetReadings()
     if (voltage < 0.09)
       voltage = 0.0;
 
+    voltageBuff[buffIdx] = voltage;
+    
     unsigned long delta = millis() - time;
     rpm = (60000 / delta) * (rev / bladesCount);
+
+    rpmBuff[buffIdx] = rpm;
     
     time = millis();
 
+    if(buffIdx < 2)
+      buffIdx++;
+    else
+      buffIdx = 0;
     prevtime = currtime; // RESET IDLETIME
   }
 }
@@ -335,12 +368,12 @@ void loop()
   if (screen == 0)
   {
     unsigned long currentTime = millis();
-    if(millis() - lastReadingsUpdate > 300)
+    if(millis() - lastReadingsUpdate > 150)
     {
         GetReadings();
         lastReadingsUpdate = millis();
     }
-    if(millis() - lastUIUpdate > 600)
+    if(millis() - lastUIUpdate > 500)
     {
       MainScreen();
       lastUIUpdate = millis();
@@ -357,6 +390,7 @@ void loop()
   }
 }
 
+bool command = false;
 void serialEvent() 
 {
   int input = Serial.read();
@@ -364,15 +398,22 @@ void serialEvent()
   // set poles count command
   if(input == 101)
   {
+    command = true;
+    
     Serial.write(101);
     input = Serial.read();
-    if(input > 2 && input % 2 == 0)
-    {
+    
+  }
+
+  if(command && input > 2 && input % 2 == 0)
+  {
+    command = false;
       bladesCount = (int)(input/2);
       StartMain();
-    }
+   
   }
-  
+  else
+  {
   if(input < 0 || input > 100)
   {
     input = 0;
@@ -382,5 +423,6 @@ void serialEvent()
   {
     throttle = input;
     servo.write(map(throttle, 0, 100, 0, 180));
+  }
   }
 }
