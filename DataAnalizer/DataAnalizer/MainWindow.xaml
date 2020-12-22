@@ -5,10 +5,11 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"     
         xmlns:local="clr-namespace:DataAnalizer"
         mc:Ignorable="d"
-        Title="MainWindow" Height="450" Width="800">
+        Title="BLDC Benchmark control panel" Height="450" Width="800" Icon="motor.png">
     <DockPanel LastChildFill="True">
         <DockPanel DockPanel.Dock="Top" Margin="10">
             <StackPanel Orientation="Horizontal" DockPanel.Dock="Left">
+                <TextBlock Text="Port: " VerticalAlignment="Center"/>
                 <ComboBox ItemsSource="{Binding Path=Ports}" SelectedValue="{Binding Path=PortName}" DisplayMemberPath="" Width="100" Margin="3"/>
                 <Button Command="{Binding Path=RefreshCommand}" Content="{Binding Path=RefreshCommand.Text}" Margin="3"/>
                 <Button Command="{Binding Path=ConnectCommand}" Content="{Binding Path=ConnectCommand.Text}" Margin="3" 
@@ -23,8 +24,11 @@
 
             </StackPanel>
             <StackPanel Orientation="Horizontal" DockPanel.Dock="Right">
-                <TextBlock Text="Motor Poles: " VerticalAlignment="Center"/>
-                <TextBox Text="{Binding Path=PolesCount, Mode=TwoWay}" VerticalAlignment="Center" Width="60" Margin="3"/>
+                <TextBlock Text="Motor configuration: " VerticalAlignment="Center"/>
+                <ComboBox Width="100" Height="25" VerticalAlignment="Center" Margin="3"
+                            ItemsSource="{Binding Source={local:EnumList {x:Type local:MotorType}}}"                                  
+                            SelectedValue="{Binding Path=MotorType}" 
+                            SelectedValuePath="Value" DisplayMemberPath="Key" />
             </StackPanel>
 
 

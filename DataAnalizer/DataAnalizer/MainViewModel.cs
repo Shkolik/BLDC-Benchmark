@@ -93,23 +93,22 @@ namespace DataAnalizer
 			}
 		}
 
-		private int _PolesCount = 14;
-		public int PolesCount
+		private MotorType _MotorType = MotorType.TwelveForteen;
+		public MotorType MotorType
 		{
 			get
 			{
-				return _PolesCount;
+				return _MotorType;
 			}
 			set
 			{
-				if (_PolesCount != value)
+				if (_MotorType != value)
 				{
-					_PolesCount = value;
+					_MotorType = value;					
 					NotifyPropertyChanged();
 				}
 			}
 		}
-
 		public void ClearHistory()
 		{
 			History.Clear();
@@ -306,7 +305,7 @@ namespace DataAnalizer
 
 					Thread.Sleep(100);
 					//send settings
-					if (Connected && PolesCount != 0)
+					if (Connected)
 					{
 						try
 						{
@@ -314,7 +313,7 @@ namespace DataAnalizer
 							Thread.Sleep(100);
 							if (_SerialPort.ReadByte() == 101)
 							{
-								_SerialPort.Write(new byte[] { (byte)PolesCount }, 0, 1);
+								_SerialPort.Write(new byte[] { (byte)MotorType }, 0, 1);
 							}
 						}
 						catch (Exception)
