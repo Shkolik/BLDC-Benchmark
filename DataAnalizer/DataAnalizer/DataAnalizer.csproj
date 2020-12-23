@@ -38,6 +38,15 @@
     <Reference Include="DotNetProjects.DataVisualization.Toolkit, Version=6.0.85.0, Culture=neutral, PublicKeyToken=79778c5f2eed289b, processorArchitecture=MSIL">
       <HintPath>..\packages\DotNetProjects.WpfToolkit.DataVisualization.6.0.85\lib\net40\DotNetProjects.DataVisualization.Toolkit.dll</HintPath>
     </Reference>
+    <Reference Include="Microsoft.Xaml.Behaviors, Version=1.1.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <HintPath>..\packages\Microsoft.Xaml.Behaviors.Wpf.1.1.19\lib\net45\Microsoft.Xaml.Behaviors.dll</HintPath>
+    </Reference>
+    <Reference Include="RealTimeGraphX">
+      <HintPath>..\..\lib\RealTimeGraphX.dll</HintPath>
+    </Reference>
+    <Reference Include="RealTimeGraphX.WPF">
+      <HintPath>..\..\lib\RealTimeGraphX.WPF.dll</HintPath>
+    </Reference>
     <Reference Include="System" />
     <Reference Include="System.Data" />
     <Reference Include="System.Xml" />
@@ -58,6 +67,10 @@
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </ApplicationDefinition>
+    <Compile Include="BaudRate.cs" />
+    <Compile Include="Converters\BoolInvertConverter.cs" />
+    <Compile Include="Converters\BoolToConnectionStatusConverter.cs" />
+    <Compile Include="WpfGraphControl.cs" />
     <Page Include="MainWindow.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
@@ -74,6 +87,10 @@
       <DependentUpon>MainWindow.xaml</DependentUpon>
       <SubType>Code</SubType>
     </Compile>
+    <Page Include="Themes\Generic.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
   </ItemGroup>
   <ItemGroup>
     <Compile Include="MotorType.cs" />
@@ -104,7 +121,11 @@
     <None Include="App.config" />
   </ItemGroup>
   <ItemGroup>
-    <Resource Include="motor.png" />
+    <Resource Include="Images\motor.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <Resource Include="Images\connect.png" />
+    <Resource Include="Images\disconnect.png" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

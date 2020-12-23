@@ -115,7 +115,12 @@ namespace DataAnalizer
 
                 var itemString = item.ToString();
                 if (!GetFromNames)
-                    itemString = EnumHelper.GetEnumDescription(item);
+                {
+                    var fieldInfo = item.GetType().GetField(item.ToString());
+                    var attributes = (DescriptionAttribute[])fieldInfo.GetCustomAttributes(typeof(DescriptionAttribute), false);
+
+                    itemString = attributes.Length > 0 ? attributes[0].Description : itemString;
+                }
 
                 if (string.IsNullOrEmpty(itemString) && ExcludeEmpty)
                     continue;
@@ -153,44 +158,4 @@ namespace DataAnalizer
         }
     }
 
-    public class NameObjectPair
-    {
-        /// <summary>
-        /// Gets or sets the name.
-        /// </summary>
-        /// <value>The name.</value>
-        public string Name
-        {
-            get;
-            set;
-        }
-
-        /// <summary>
-        /// Gets or sets the value.
-        /// </summary>
-        /// <value>The value.</value>
-        public object Value
-        {
-            get;
-            set;
-        }
-
-        /// <summary>
-        /// Initializes a new instance of the <see cref="NameValuePair"/> class.
-        /// </summary>
-        public NameObjectPair()
-        {
-        }
-
-        /// <summary>
-        /// Initializes a new instance of the <see cref="NameValuePair"/> class.
-        /// </summary>
-        /// <param name="name">The name.</param>
-        /// <param name="value">The value.</param>
-        public NameObjectPair(string name, object value)
-        {
-            Name = name;
-            Value = value;
-        }
-    }
 }

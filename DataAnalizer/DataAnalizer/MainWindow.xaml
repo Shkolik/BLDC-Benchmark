@@ -2,39 +2,82 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"     
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:DataAnalizer"
         mc:Ignorable="d"
-        Title="BLDC Benchmark control panel" Height="450" Width="800" Icon="motor.png">
-    <DockPanel LastChildFill="True">
-        <DockPanel DockPanel.Dock="Top" Margin="10">
-            <StackPanel Orientation="Horizontal" DockPanel.Dock="Left">
-                <TextBlock Text="Port: " VerticalAlignment="Center"/>
-                <ComboBox ItemsSource="{Binding Path=Ports}" SelectedValue="{Binding Path=PortName}" DisplayMemberPath="" Width="100" Margin="3"/>
-                <Button Command="{Binding Path=RefreshCommand}" Content="{Binding Path=RefreshCommand.Text}" Margin="3"/>
-                <Button Command="{Binding Path=ConnectCommand}" Content="{Binding Path=ConnectCommand.Text}" Margin="3" 
-                    Visibility="{Binding RelativeSource={RelativeSource Mode=Self}, Path=IsEnabled, Converter={StaticResource BoolToVisConverter}}"/>
-                <Button Command="{Binding Path=DisconnectCommand}" Content="{Binding Path=DisconnectCommand.Text}" Margin="3"
-                    Visibility="{Binding RelativeSource={RelativeSource Mode=Self}, Path=IsEnabled, Converter={StaticResource BoolToVisConverter}}"/>
+        Title="BLDC Benchmark control panel" Height="600" Width="900" Icon="Images\motor.png"
+        
+        KeyDown="Window_KeyDown">
+    <DockPanel LastChildFill="True" DataContext="{Binding Path=ViewModel}">
+        <Grid DockPanel.Dock="Top" Height="100">
+            <Border  Background="Black"/>
 
-                <Button Command="{Binding Path=ExportCommand}" Content="{Binding Path=ExportCommand.Text}" Margin="3"
-                    Visibility="{Binding RelativeSource={RelativeSource Mode=Self}, Path=IsEnabled, Converter={StaticResource BoolToVisConverter}}"/>
-                <Button Command="{Binding Path=ClearCommand}" Content="{Binding Path=ClearCommand.Text}" Margin="3"
-                    Visibility="{Binding RelativeSource={RelativeSource Mode=Self}, Path=IsEnabled, Converter={StaticResource BoolToVisConverter}}"/>
+            <Border Margin="0,0,0,1" Background="White">
+                <DockPanel LastChildFill="True" Margin="5">
+                    <Image Margin="5" Source="Images\motor.png" DockPanel.Dock="Left"/>
+                    <StackPanel DockPanel.Dock="Left">
+                        
+                        <Button Command="{Binding Path=EmulateCommand}" Content="{Binding Path=EmulateCommand.Text}" Margin="3" 
+                                Visibility="{Binding RelativeSource={RelativeSource Mode=Self}, Path=IsEnabled, Converter={StaticResource BoolToVisConverter}}"/>    
 
-            </StackPanel>
-            <StackPanel Orientation="Horizontal" DockPanel.Dock="Right">
-                <TextBlock Text="Motor configuration: " VerticalAlignment="Center"/>
-                <ComboBox Width="100" Height="25" VerticalAlignment="Center" Margin="3"
+                    </StackPanel>
+                    <Grid DockPanel.Dock="Right" Width="250">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="130"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+
+                        <ComboBox ItemsSource="{Binding Path=Ports}" SelectedValue="{Binding Path=PortName}" 
+                                  DisplayMemberPath="" Width="120" Margin="3"
+                                  IsEnabled="{Binding Path=Connected, Converter={StaticResource BoolInvertConverter}}"/>
+                        <ComboBox Width="120" VerticalAlignment="Center" Margin="3" Grid.Row="1"
+                            ItemsSource="{Binding Source={local:EnumList {x:Type local:BaudRate}}}"                                  
+                            SelectedValue="{Binding Path=BaudRate}" 
+                            SelectedValuePath="Value" DisplayMemberPath="Key" 
+                                  IsEnabled="{Binding Path=Connected, Converter={StaticResource BoolInvertConverter}}"/>
+                        <ComboBox Width="120" VerticalAlignment="Center" Margin="3" Grid.Row="2"
                             ItemsSource="{Binding Source={local:EnumList {x:Type local:MotorType}}}"                                  
                             SelectedValue="{Binding Path=MotorType}" 
-                            SelectedValuePath="Value" DisplayMemberPath="Key" />
-            </StackPanel>
+                            SelectedValuePath="Value" DisplayMemberPath="Key" 
+                                  IsEnabled="{Binding Path=Connected, Converter={StaticResource BoolInvertConverter}}"/>
+                        <StackPanel Grid.Column="1" Grid.RowSpan="3">
+                            <Button  Width="60" Height="60" Margin="3" Command="{Binding Path=ConnectCommand}">
+                                <Button.Style>
+                                    <Style TargetType="Button" BasedOn="{StaticResource RoundButtonStyle}">
+                                        <Setter Property="Content">
+                                            <Setter.Value>
+                                                <Image Source="Images\connect.png" Margin="0,5,0,0"/>
+                                            </Setter.Value>
+                                        </Setter>                                        
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding Path=Connected}" Value="True">
+                                                <Setter Property="Background" Value="Red"/>
+                                                <Setter Property="Content">
+                                                    <Setter.Value>
+                                                        <Image Source="Images\disconnect.png" Margin="0,5,0,0"/>
+                                                    </Setter.Value>
+                                                </Setter>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Button.Style>
+                            </Button>
+                            <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center"
+                                       Text="{Binding Path=Connected, Converter={StaticResource BoolToConnectionActionConverter}}"/>
+                        </StackPanel>
+                    </Grid>
 
-
-            <Grid></Grid>
-        </DockPanel>
-        
+                    <ListBox ItemsSource="{Binding Path=Log}" ScrollViewer.VerticalScrollBarVisibility="Hidden" DisplayMemberPath="" 
+                         ScrollViewer.ScrollChanged="ListBox_ScrollChanged"/>
+                </DockPanel>
+            </Border>
+        </Grid>
+                
         <DockPanel LastChildFill="True">
             <DockPanel DockPanel.Dock="Right"  LastChildFill="True">
                 <TextBlock Text="{Binding Path=Throttle}" HorizontalAlignment="Center" DockPanel.Dock="Bottom" Margin="10"/>
@@ -43,9 +86,18 @@
             </DockPanel>
 
             <Button Command="{Binding Path=StopCommand}" Content="{Binding Path=StopCommand.Text}" Margin="10" DockPanel.Dock="Bottom" Height="45"
-                    Background="Red" Foreground="White" FontSize="20" FontWeight="Bold"
+                    Background="Red" Foreground="White" FontSize="20" FontWeight="Bold" IsDefault="True"
                     Visibility="{Binding RelativeSource={RelativeSource Mode=Self}, Path=IsEnabled, Converter={StaticResource BoolToVisConverter}}"/>
-            
+
+            <local:WpfGraphControl Margin="10" MaxHeight="120" DockPanel.Dock="Bottom"
+                                   Controller="{Binding RelativeSource={RelativeSource AncestorType=Window, Mode=FindAncestor}, Path=ThrottleController}" />
+
+            <StackPanel Orientation="Horizontal" DockPanel.Dock="Bottom" HorizontalAlignment="Right" Margin="0, 0, 10, 0">
+                <Button Command="{Binding Path=ExportCommand}" Content="{Binding Path=ExportCommand.Text}" Margin="3"
+                    Visibility="{Binding RelativeSource={RelativeSource Mode=Self}, Path=IsEnabled, Converter={StaticResource BoolToVisConverter}}"/>
+                <Button Command="{Binding Path=ClearCommand}" Content="{Binding Path=ClearCommand.Text}" Margin="3"
+                    Visibility="{Binding RelativeSource={RelativeSource Mode=Self}, Path=IsEnabled, Converter={StaticResource BoolToVisConverter}}"/>
+            </StackPanel>
             <ListBox ItemsSource="{Binding Path=History}" DisplayMemberPath="" 
                      ScrollViewer.ScrollChanged="ListBox_ScrollChanged" Margin="10">
 

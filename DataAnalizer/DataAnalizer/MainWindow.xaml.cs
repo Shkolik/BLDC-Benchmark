@@ -1,4 +1,7 @@
 ﻿using Microsoft.Win32;
+using RealTimeGraphX;
+using RealTimeGraphX.DataPoints;
+using RealTimeGraphX.WPF;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -32,10 +35,42 @@ namespace DataAnalizer
 
             ViewModel = new MainViewModel();
             ViewModel.DataReady += ViewModel_DataReady;
-            DataContext = ViewModel;
+            ViewModel.History.CollectionChanged += History_CollectionChanged;
+            DataContext = this;
 
-            
+            ThrottleController = new WpfGraphController<Int32DataPoint, Int32DataPoint>();
+            ThrottleController.Range.MinimumY = 0;
+            ThrottleController.Range.MaximumY = 100;
+            ThrottleController.Range.MaximumX = 100;
+            ThrottleController.Range.AutoY = true;
+            ThrottleController.Range.AutoYFallbackMode = GraphRangeAutoYFallBackMode.MinMax;
+
+            ThrottleController.DataSeriesCollection.Add(new WpfGraphDataSeries()
+            {
+                Name = "Series",
+                Stroke = Colors.DodgerBlue,
+            });
         }
+
+        private void History_CollectionChanged(object sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
+        {
+            if (e.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Add)
+            {
+                var idx = e.NewStartingIndex;
+
+                foreach (var item in e.NewItems.OfType<DataPacket>())
+                {
+                    ThrottleController.PushData(new Int32DataPoint(idx), new Int32DataPoint(item.Throttle));
+                    idx++;
+                }
+            }
+            else if (e.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Reset)
+            {
+                ThrottleController.ClearCommand.Execute(null);
+            }
+        }
+
+        public WpfGraphController<Int32DataPoint, Int32DataPoint> ThrottleController { get; set; }
 
         private void ViewModel_DataReady(object sender, string e)
         {
@@ -67,9 +102,14 @@ namespace DataAnalizer
         /// </summary>
         public MainViewModel ViewModel { get; set; }
 
-
+        
         #endregion
 
+        /// <summary>
+        /// Scroll listbox to the bottom
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
         private void ListBox_ScrollChanged(object sender, ScrollChangedEventArgs e)
         {
             if (sender is ListBox listBox && e.ExtentHeightChange > 0)
@@ -79,6 +119,14 @@ namespace DataAnalizer
                 ScrollViewer scrollViewer = (ScrollViewer)VisualTreeHelper.GetChild(border, 0);
 
                 scrollViewer.ScrollToBottom();
+            }
+        }
+
+        private void Window_KeyDown(object sender, KeyEventArgs e)
+        {
+            if(e.Key == Key.Space)
+            {
+                ViewModel.StopCommand.Execute(null);
             }
         }
     }
