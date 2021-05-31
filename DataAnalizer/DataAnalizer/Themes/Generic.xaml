@@ -8,7 +8,7 @@
     <Style TargetType="{x:Type local:WpfGraphControl}">
         <Setter Property="BorderThickness" Value="1"></Setter>
         <Setter Property="BorderBrush" Value="#FF2E2E2E"></Setter>
-        <Setter Property="Padding" Value="20 20 30 20"></Setter>
+        <Setter Property="Padding" Value="10 10 10 10"></Setter>
         <Setter Property="FontSize" Value="11"></Setter>
         <Setter Property="Foreground" Value="DodgerBlue"></Setter>
         <Setter Property="Background">
@@ -30,20 +30,24 @@
                         <Grid>
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="1*"/>
-                                <!--RowDefinition Height="35"/-->
+                                <RowDefinition Height="25"/>
                             </Grid.RowDefinitions>
                             <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="70"/>
+                                <ColumnDefinition Width="40"/>
                                 <ColumnDefinition Width="1*"/>
                             </Grid.ColumnDefinitions>
 
                             <Grid Grid.Column="1">
-                                <realTimeGraphX:WpfGraphGridLines Controller="{TemplateBinding Controller}" Foreground="#FF2E2E2E" />
+                                <realTimeGraphX:WpfGraphGridLines Rows="10" Controller="{TemplateBinding Controller}" Foreground="#FF2E2E2E" />
                                 <realTimeGraphX:WpfGraphSurface x:Name="surface" Controller="{TemplateBinding Controller}" BorderThickness="1 0 0 1" BorderBrush="{TemplateBinding Foreground}" />
                             </Grid>
 
-                            <realTimeGraphX:WpfGraphAxisControl Orientation="Vertical" Controller="{TemplateBinding Controller}" StringFormat="0.0" />
-                            <!--realTimeGraphX:WpfGraphAxisControl Orientation="Horizontal" Controller="{TemplateBinding Controller}" Grid.Column="1" Grid.Row="1" /-->
+                            <realTimeGraphX:WpfGraphAxisControl Ticks="6"  Orientation="Vertical"  Controller="{TemplateBinding Controller}" StringFormat="0" />
+                            <Border Grid.Row="1" Grid.Column="1">
+                                <ContentPresenter x:Name="contentPresenter" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                            
+                            
                         </Grid>
                     </Border>
                 </ControlTemplate>

@@ -8,7 +8,7 @@
         <BooleanToVisibilityConverter x:Key="BoolToVisConverter" />
         <converters:BoolToConnectionActionConverter x:Key="BoolToConnectionActionConverter"/>
         <converters:BoolInvertConverter x:Key="BoolInvertConverter"/>
-        
+
         <Style x:Key="FocusVisual">
             <Setter Property="Control.Template">
                 <Setter.Value>
@@ -54,6 +54,7 @@
             </ControlTemplate.Triggers>
         </ControlTemplate>
 
+        
         <Style x:Key="RoundButtonStyle" TargetType="Button">
             <Setter Property="Background" Value="{StaticResource Button.Static.Background}"/>
             <Setter Property="BorderBrush" Value="{StaticResource Button.Static.Border}"/>
@@ -64,5 +65,6 @@
             <Setter Property="Padding" Value="1"/>
             <Setter Property="Template" Value="{StaticResource RoundButtonControlTemplate}"/>            
         </Style>
+
     </Application.Resources>
 </Application>

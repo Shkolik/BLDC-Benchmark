@@ -5,21 +5,18 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:DataAnalizer"
         mc:Ignorable="d"
-        Title="BLDC Benchmark control panel" Height="600" Width="900" Icon="Images\motor.png"
+        Title="BLDC Benchmark control panel" Height="700" Width="1000" Icon="Images\motor.png"
         
         KeyDown="Window_KeyDown">
     <DockPanel LastChildFill="True" DataContext="{Binding Path=ViewModel}">
-        <Grid DockPanel.Dock="Top" Height="100">
+        <Grid DockPanel.Dock="Top" Height="100" x:Name="HeaderPanel">
             <Border  Background="Black"/>
-
             <Border Margin="0,0,0,1" Background="White">
                 <DockPanel LastChildFill="True" Margin="5">
                     <Image Margin="5" Source="Images\motor.png" DockPanel.Dock="Left"/>
                     <StackPanel DockPanel.Dock="Left">
-                        
                         <Button Command="{Binding Path=EmulateCommand}" Content="{Binding Path=EmulateCommand.Text}" Margin="3" 
-                                Visibility="{Binding RelativeSource={RelativeSource Mode=Self}, Path=IsEnabled, Converter={StaticResource BoolToVisConverter}}"/>    
-
+                                Visibility="{Binding RelativeSource={RelativeSource Mode=Self}, Path=IsEnabled, Converter={StaticResource BoolToVisConverter}}"/>
                     </StackPanel>
                     <Grid DockPanel.Dock="Right" Width="250">
                         <Grid.RowDefinitions>
@@ -53,7 +50,7 @@
                                             <Setter.Value>
                                                 <Image Source="Images\connect.png" Margin="0,5,0,0"/>
                                             </Setter.Value>
-                                        </Setter>                                        
+                                        </Setter>
                                         <Style.Triggers>
                                             <DataTrigger Binding="{Binding Path=Connected}" Value="True">
                                                 <Setter Property="Background" Value="Red"/>
@@ -77,20 +74,32 @@
                 </DockPanel>
             </Border>
         </Grid>
-                
         <DockPanel LastChildFill="True">
-            <DockPanel DockPanel.Dock="Right"  LastChildFill="True">
-                <TextBlock Text="{Binding Path=Throttle}" HorizontalAlignment="Center" DockPanel.Dock="Bottom" Margin="10"/>
-                <Slider Value="{Binding Path=Throttle}" Minimum="0" Maximum="100" IsSnapToTickEnabled="True" LargeChange="10" TickFrequency="10" TickPlacement="Both" 
-                    Orientation="Vertical" Margin="10"/>
-            </DockPanel>
-
             <Button Command="{Binding Path=StopCommand}" Content="{Binding Path=StopCommand.Text}" Margin="10" DockPanel.Dock="Bottom" Height="45"
                     Background="Red" Foreground="White" FontSize="20" FontWeight="Bold" IsDefault="True"
                     Visibility="{Binding RelativeSource={RelativeSource Mode=Self}, Path=IsEnabled, Converter={StaticResource BoolToVisConverter}}"/>
+            
+            <Grid DockPanel.Dock="Right" Width="120" x:Name="ControlsPanel">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="300"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
 
-            <local:WpfGraphControl Margin="10" MaxHeight="120" DockPanel.Dock="Bottom"
-                                   Controller="{Binding RelativeSource={RelativeSource AncestorType=Window, Mode=FindAncestor}, Path=ThrottleController}" />
+                <Border BorderBrush="Black" BorderThickness="1" Margin="5, 10, 5, 5">
+                    <DockPanel LastChildFill="True">
+                        <TextBlock Text="Throttle" HorizontalAlignment="Center" DockPanel.Dock="Top" Margin="10"/>
+                        <TextBlock Text="{Binding Path=Throttle}" HorizontalAlignment="Center" DockPanel.Dock="Bottom" Margin="10"/>
+                        <Slider Value="{Binding Path=Throttle}" HorizontalAlignment="Center" Minimum="0" Maximum="100" IsSnapToTickEnabled="True" LargeChange="10" 
+                                TickFrequency="10" TickPlacement="Both" Orientation="Vertical" Margin="10"/>
+                    </DockPanel>
+                </Border>
+                
+            </Grid>
+
+            <local:WpfGraphControl Margin="10" MaxHeight="120" DockPanel.Dock="Bottom" 
+                                   Controller="{Binding RelativeSource={RelativeSource AncestorType=Window, Mode=FindAncestor}, Path=ThrottleController}" >
+                <TextBlock Text="Test"/>
+            </local:WpfGraphControl>
 
             <StackPanel Orientation="Horizontal" DockPanel.Dock="Bottom" HorizontalAlignment="Right" Margin="0, 0, 10, 0">
                 <Button Command="{Binding Path=ExportCommand}" Content="{Binding Path=ExportCommand.Text}" Margin="3"

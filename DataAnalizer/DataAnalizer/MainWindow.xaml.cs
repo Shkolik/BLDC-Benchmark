@@ -50,6 +50,8 @@ namespace DataAnalizer
                 Name = "Series",
                 Stroke = Colors.DodgerBlue,
             });
+
+            ThrottleController.PushData(new Int32DataPoint(0), new Int32DataPoint(0));
         }
 
         private void History_CollectionChanged(object sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
@@ -67,6 +69,7 @@ namespace DataAnalizer
             else if (e.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Reset)
             {
                 ThrottleController.ClearCommand.Execute(null);
+                ThrottleController.PushData(new Int32DataPoint(0), new Int32DataPoint(0));
             }
         }
 

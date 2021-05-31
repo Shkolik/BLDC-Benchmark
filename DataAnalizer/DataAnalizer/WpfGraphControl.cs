@@ -16,7 +16,7 @@ using System.Windows.Shapes;
 
 namespace DataAnalizer
 {
-    public class WpfGraphControl : Control
+    public class WpfGraphControl : ContentControl
     {
         /// <summary>
         /// Gets or sets the graph controller.

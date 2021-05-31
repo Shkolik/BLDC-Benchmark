@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.IO.Ports;
 using System.Linq;
 using System.Runtime.CompilerServices;
@@ -63,7 +64,7 @@ namespace DataAnalizer
 			{
 				if (!string.IsNullOrEmpty(value) && value != _PortName)
 				{
-					Log.Add($"Port {value} selected");
+					LogMessage($"Port {value} selected");
 				}
 				_PortName = value;
 				NotifyPropertyChanged();
@@ -105,7 +106,7 @@ namespace DataAnalizer
 					message = _Emulation ? "Emulation started" : $"{PortName} connected";					
 				}
 
-				Log.Add(message);
+				LogMessage(message);
 				NotifyPropertyChanged();
 			}
 		}
@@ -205,7 +206,8 @@ namespace DataAnalizer
 			{
 				if (_SerialPort?.IsOpen == true)
 				{
-					_SerialPort.Write(new byte[] { (byte)Throttle}, 0, 1);
+					var str = $"102,{Throttle};";
+					_SerialPort.WriteLine(str);
 				}
 			}
 			catch (TimeoutException)
@@ -221,7 +223,7 @@ namespace DataAnalizer
 				_StopCommand = _StopCommand ?? new DelegateCommand(() =>
 				{
 					Throttle = 0;
-					Log.Add("EMERGENCY STOP executed!");
+					LogMessage("EMERGENCY STOP executed!");
 				}, () =>
 				{
 					return _SerialPort?.IsOpen == true;
@@ -238,10 +240,10 @@ namespace DataAnalizer
 				_ClearCommand = _ClearCommand ?? new DelegateCommand(() =>
 				{
 					History.Clear();
-					Log.Add("Data was cleared");
+					LogMessage("Data was cleared");
 				}, () =>
 				{
-					return _SerialPort?.IsOpen != true && History.Count > 0;
+					return !Connected && History.Count > 0;
 				},
 				"Clear Data");
 				return _ClearCommand;
@@ -267,7 +269,7 @@ namespace DataAnalizer
 					DataReady?.Invoke(this, data);
 				}, () =>
 				{
-					return _SerialPort?.IsOpen != true && History.Count > 0;
+					return !Connected && History.Count > 0;
 				},
 				"Export Data");
 				return _ExportCommand;
@@ -280,7 +282,7 @@ namespace DataAnalizer
 		{
 			if (!_DiscoveringPorts)
 			{
-				Log.Add("COM ports discovery started...");
+				LogMessage("COM ports discovery started...");
 
 				_DiscoveringPorts = true;
 				Task.Run(() =>
@@ -306,7 +308,7 @@ namespace DataAnalizer
 						}
 						else
 						{
-							if (Connected)
+							if (Connected && !_Emulation)
 							{
 								ConnectCommand.Execute(null);
 							}
@@ -336,6 +338,7 @@ namespace DataAnalizer
 						_TokenSource.Cancel();
 						Thread.Sleep(100);
 						_SerialPort?.Close();
+						_SerialPort?.Dispose();
 						Connected = false;
 					}
 					else
@@ -344,43 +347,48 @@ namespace DataAnalizer
 						{
 							// Allow the user to set the appropriate properties.
 							PortName = PortName,
-							BaudRate = (int)BaudRate
+							BaudRate = (int)BaudRate,
+							DtrEnable = true
 						};
 
 						_SerialPort.Open();
 						Connected = _SerialPort.IsOpen;
 
-						Thread.Sleep(1000);
 						//send settings
 						if (Connected)
 						{
 							try
 							{
-								_SerialPort.Write(new byte[] { 101 }, 0, 1);
-								Log.Add($"SetSettings command sent");
-								Thread.Sleep(500);
-								if (_SerialPort.BytesToRead == 1 &&_SerialPort.ReadByte() == 101)
+								var result = HandShake();
+								if (result)
 								{
-									Log.Add($"SetSettings command acepted");
-									_SerialPort.Write(new byte[] { (byte)MotorType }, 0, 1);
+									_SerialPort.WriteLine($"101,{(int)MotorType},1;");
+									LogMessage($"SetSettings command sent");
 
-									Log.Add($"SetSettings command succeded");
+									result = HandShake();									
+								}
+								
+								if(result)
+                                {
+									LogMessage($"SetSettings command acepted");
 								}
 								else
                                 {
-									Log.Add($"Settings not set - no responce from controller");
+									LogMessage($"Settings not set - no responce from controller");
 								}
 							}
 							catch (Exception ex)
 							{
-								Log.Add($"SetSettings command failed. {ex.Message}");
+								LogMessage($"SetSettings command failed. {ex.Message}");
 								return;
 							}
 						}
 
+						UpdateThrottlePosition();
+
 						_TokenSource = new CancellationTokenSource();
 
-						Log.Add($"Starting data listener");
+						LogMessage($"Starting data listener");
 						Task.Run(() =>
 						{
 							ReadCurrentPort();
@@ -399,6 +407,18 @@ namespace DataAnalizer
 			}
 		}
 
+		private bool HandShake()
+		{
+			var watch = new Stopwatch();
+			watch.Start();
+
+			while (watch.ElapsedMilliseconds < 4000 && _SerialPort.BytesToRead == 0)
+			{
+				Thread.Sleep(100);
+			}
+
+			return _SerialPort.BytesToRead == 1 && _SerialPort.ReadByte() == 101;
+		}
 		public ICommand EmulateCommand
 		{
 			get
@@ -438,7 +458,15 @@ namespace DataAnalizer
 			}
 		}
 
-        #endregion
+		#endregion
+
+		private void LogMessage(string message)
+		{
+			Application.Current.Dispatcher.BeginInvoke(DispatcherPriority.DataBind, new Action(() =>
+			{
+				Log.Add(message);
+			}));
+		}
 
         #region INotifyPropertyChanged members
         public void NotifyPropertyChanged([CallerMemberName] string propertyName = null)
