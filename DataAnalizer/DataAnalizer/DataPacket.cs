@@ -20,6 +20,12 @@ namespace DataAnalizer
         {
             if (input != null)
             {
+                if (input.StartsWith("102,") && int.TryParse(input.Substring(4), out int throttle)) // System packet
+                {
+                    Throttle = throttle;
+                    IsSystem = true;
+                }
+
                 var parts = input.Trim(new[] { ';', '\r', '\n', '\t' }).Split(new[] { ';' });
                 foreach (var part in parts)
                 {
@@ -76,6 +82,8 @@ namespace DataAnalizer
         public decimal Current { get; set; }
         public decimal Thrust { get; set; }
         public decimal Voltage { get; set; }
+
+        public bool IsSystem { get; private set; } = false;
 
         public bool NotEmpty()
         {

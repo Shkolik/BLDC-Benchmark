@@ -53,7 +53,7 @@ Tacho tacho;
 Adafruit_TiCoServo  servo;
 HX711 scale;
 LiquidCrystal lcd(RS, EN, D4, D5, D6, D7);
-Encoder encoder(ENCR, ENCL, SEL, TYPE1);
+Encoder encoder(ENCR, ENCL, SEL, TYPE2);
 
 int throttle = -1;    // servo position
 
@@ -64,6 +64,8 @@ byte mode = 0; // handheld by default.
 byte polesCount = 2, screen = 1;
 
 int rpm = 0;
+int maxRpm = 0;
+
 float thrust = 0.0;
 float voltage = 0.0;
 float current = 0.0;
@@ -72,10 +74,7 @@ GMedian<3, float> voltageFilter;
 GMedian<5, float> currentFilter;
 GMedian<5, float> thrustFilter;
 
-unsigned long time; //  DEFINE TIME TAKEN TO COVER ONE REVOLUTION
 
-unsigned long lastUIUpdate;
-unsigned long lastReadingsUpdate;
 
 byte uiPage = 0;
 
@@ -125,71 +124,54 @@ void MainScreen()
 
   switch(mode)
   {
-    case 0:   // Handheld tachometer 
-      lcd.print(readPgmString(&s_rpm[0]));
+    case 0:   // Handheld tachometer       
+      // throttle
+      lcd.print(throttle > 0 ? throttle : 0, DEC);
+      lcd.print(F("%"));
       
       printBlades();
       
       lcd.setCursor(0, 1);
       lcd.print(rpm, DEC);
+
+      lcd.setCursor(8, 1);
+      lcd.print(maxRpm, DEC);
       break;
-    case 1:   // Connected to PC stand
-      /*lcd.print(readPgmString(pgm_read_word(&l_headers[uiPage]))); // print header
+    case 1:   // Connected to PC stand              
+      // Thrust
+      if(thrust > 999)
+        lcd.print((int)thrust, DEC);
+      else
+        lcd.print(thrust, 1);
+      lcd.print(F("g"));
+
+      lcd.setCursor(7, 0);
+
+      // voltage
+      lcd.print(voltage, 1);
+      lcd.print(F("v"));
+
+      lcd.setCursor(12, 0);
+
+      // KV
+      lcd.print(_kv, DEC);
+
       lcd.setCursor(0, 1);
       
-      if (uiPage == 0)
-      {
-        lcd.print(rpm, DEC);
-        lcd.setCursor(6, 1);
-        lcd.print(voltage, 1);
-        lcd.setCursor(12, 1);
-        lcd.print(_kv, DEC);
-      }
-      else if (uiPage == 1)
-      {
-        lcd.print(thrust, 1);
-        lcd.setCursor(9, 1);
-        lcd.print(current, 2);
-      }
-      else
-      {*/
-        lcd.clear();
-        // Thrust
-        if(thrust > 999)
-          lcd.print((int)thrust, DEC);
-        else
-          lcd.print(thrust, 1);
-        lcd.print(F("g"));
+      //rpm
+      lcd.print(rpm, DEC);
 
-        lcd.setCursor(7, 0);
+      lcd.setCursor(7, 1);
 
-        // voltage
-        lcd.print(voltage, 1);
-        lcd.print(F("v"));
+      // current
+      lcd.print(current, 1);
+      lcd.print(F("a"));
 
-        lcd.setCursor(12, 0);
+      lcd.setCursor(12, 1);
 
-        // KV
-        lcd.print(_kv, DEC);
-
-        lcd.setCursor(0, 1);
-        
-        //rpm
-        lcd.print(rpm, DEC);
-  
-        lcd.setCursor(7, 1);
-
-        // current
-        lcd.print(current, 1);
-        lcd.print(F("a"));
-
-        lcd.setCursor(12, 1);
-
-        // throttle
-        lcd.print(throttle > 0 ? throttle : 0, 1);
-        lcd.print(F("%"));
-        //lcd.print(throttle > 0 ? throttle : 0, 1);
-      //}
+      // throttle
+      lcd.print(throttle > 0 ? throttle : 0, DEC);
+      lcd.print(F("%"));
       break;
   }
 }
@@ -203,6 +185,11 @@ void SettingsScreen()
   static byte mode_edited = mode;
   static byte enableScale_edited = scaleEnable;
 
+  //zero throttle for safety reason
+  if(throttle > 0)
+    setThrottle(0);
+    
+  maxRpm = 0;
   if(!editMode)
   {      
     if(encoderRight)
@@ -274,13 +261,13 @@ void SettingsScreen()
             if(encoderRight)
             {
               clearEncoderFlags();
-              polesCount = cycleValue(polesCount, 1, 4);
+              polesCount = cycleValue(polesCount, 1, 7);
             }
 
             if(encoderLeft)
             {
               clearEncoderFlags();
-              polesCount = cycleValue(polesCount, 1, 4, 0, 1);
+              polesCount = cycleValue(polesCount, 1, 7, 0, 1);
             }
 
             if(clicked)
@@ -358,7 +345,6 @@ void SettingsScreen()
               editMode = false;
               clearLcd = true; // when switching from edit to view - clear lcd!
               mode = mode_edited; //apply selected mode
-              polesCount = mode ? polesCount : 2;
             }
 
             printEditIndicator();
@@ -446,15 +432,15 @@ void printBlades()
     lcd.setCursor(15, 0);    
     lcd.write(byte(0));
   }
-  if(polesCount == 2)
+  else if(polesCount == 2)
   {
     lcd.write(byte(6));
     lcd.write(byte(4));
     lcd.setCursor(14, 1);
     lcd.write(byte(2));
     lcd.write(byte(7));
-  }
-  if(polesCount == 3)
+  } 
+  else if(polesCount == 3)
   {
     lcd.write(byte(1));
     lcd.write(byte(0));
@@ -462,7 +448,7 @@ void printBlades()
     lcd.write(byte(2));
     lcd.write(byte(3));
   }
-  if(polesCount == 4)
+  else if(polesCount == 4)
   {
     lcd.write(byte(5));
     lcd.write(byte(4));
@@ -470,39 +456,36 @@ void printBlades()
     lcd.write(byte(2));
     lcd.write(byte(3));
   }
+  else
+  {
+    lcd.print(polesCount, DEC); 
+  }
 }
 
 void GetReadings()
 {
-  long currtime = millis(); // GET CURRENT TIME
-  
-    float _thrust = 0.0;
-    
-    _thrust = scaleEnable ? abs(scale.get_units(3)) : 0.0;
-    
-    if (_thrust < 0)
+    float _thrust = scaleEnable ? abs(scale.get_units(3)) : 0.0;
+
+    // min thrust - 2gr
+    if (_thrust < 2)
       _thrust = 0;
 
     thrust = thrustFilter.filtered(_thrust);
 
     float _current = analogRead(CIN) * C_SCALE;
-    if (_current < 0.06)
+    if (_current < C_SCALE)
       _current = 0.0;
 
     current = currentFilter.filtered(_current);
 
     float _voltage = ((analogRead(VIN) * VCC) / 1023.0) / (R2 / (R1 + R2));
 
-    //statement to quash undesired reading !
-    if (_voltage < 0.09)
-      _voltage = 0.0;
-
     voltage = voltageFilter.filtered(_voltage);
 
-    rpm = tacho.getRPM();
+    rpm = tacho.getRPM();  
 
-    time = millis();
-  
+    if(rpm > maxRpm)
+      maxRpm = rpm;
 }
 
 void RPM_ISR()
@@ -554,8 +537,6 @@ void initLcd()
 
 void setup()
 {
-  servo.attach(ESC, SERVO_MIN, SERVO_MAX);
-
   Serial.begin(38400);   // GET VALUES USING SERIAL MONITOR
   Serial.setTimeout(100);
   
@@ -564,10 +545,6 @@ void setup()
 
   initLcd();
   
-
-  // buttons  
-  pinMode(SEL, INPUT);
-
   // INPUTS
   pinMode(VIN, INPUT);
   pinMode(CIN, INPUT);
@@ -575,14 +552,13 @@ void setup()
 
   pinMode(LED, OUTPUT);
 
-  digitalWrite(SEL, HIGH);
+  servo.attach(ESC, SERVO_MIN, SERVO_MAX);
   
   if(scaleEnable)
   {
     initScale();
   }
   rpm = 0;
-  time = 0;
 
   // send greetings to pc
   Serial.write(101);
@@ -611,9 +587,52 @@ void clearEncoderFlags()
   clicked = false;
 }
 
+int throttleVAl = 0;
+
+void adjustThrottle()
+{
+  if(encoderLeft)
+  {
+    clearEncoderFlags();
+    
+    setThrottle(throttle - 10);
+  }
+  
+  if(encoderRight)
+  {
+    clearEncoderFlags();
+    
+    setThrottle(throttle < 0 ? 10 : throttle + 10);
+  }
+}
+
+void collectEncoderStates()
+{
+  if(encoder.isRight())
+  {
+    clearEncoderFlags();
+    encoderRight = true;
+  }
+
+  if(encoder.isLeft())
+  {
+    clearEncoderFlags();
+    encoderLeft = true;
+  }
+
+  if(encoder.isClick())
+  {
+    clearEncoderFlags();
+    clicked = true;
+  }
+}
+
 void loop()
 {
   static unsigned long lastSettingsUpdate = 0;
+  static unsigned long lastThrottleUpdate = 0;
+  static unsigned long lastReadingsUpdate = 0;
+  static unsigned long lastUIUpdate = 0;
   encoder.tick();
 
   // long press should open/close settings
@@ -624,9 +643,16 @@ void loop()
     screen = cycleValue(screen, 0, 1);
   }
 
+  collectEncoderStates();
+
   if (screen == 0)
   {
-    unsigned long currentTime = millis();
+    if (millis() - lastThrottleUpdate > 250)
+    {
+      adjustThrottle();
+      lastThrottleUpdate = millis();
+    }
+    
     if (millis() - lastReadingsUpdate > 250)
     {
       GetReadings();
@@ -635,46 +661,18 @@ void loop()
     if (millis() - lastUIUpdate > 500)
     {
       MainScreen();
-      lastUIUpdate = millis();
-      uiPage++;
-      if (uiPage > 2)
-      {
-        uiPage = 0;
-      }
+      lastUIUpdate = millis();      
     }
 
     // click to cycle blades count
-    if(mode == 0 && encoder.isClick())
+    if(mode == 0 && clicked)
     {
       polesCount = cycleValue(polesCount, 1, 4);
+      clearEncoderFlags();
     }
-    
   }
   else
   {
-    if(encoder.isRight())
-    {
-      clearEncoderFlags();
-      encoderRight = true;
-    }
-  
-    if(encoder.isLeft())
-    {
-      clearEncoderFlags();
-      encoderLeft = true;
-    }
-  
-    if(encoder.isClick())
-    {
-      clearEncoderFlags();
-      clicked = true;
-    }
-
-    if(encoder.isHolded())
-    {
-      clearEncoderFlags();
-    }
-  
     if (millis() - lastSettingsUpdate > 200)
     {
       SettingsScreen();
@@ -685,16 +683,26 @@ void loop()
 
 void setThrottle(int percent)
 {
-  if (percent < 0 || percent > 100)
-    {
-      percent = 0;
-    }
+  if (percent < 0)
+  {
+    percent = 0;
+  }
 
-    //if (percent != throttle)
-    //{
-      throttle = percent;
-      servo.write(map(throttle, 0, 100, 0, 180));
-    //}
+  if (percent > 100)
+  {
+    percent = 100;
+  }
+
+  if(throttle != percent)
+  {
+    throttle = percent;  
+    servo.write(map(throttle, 0, 100, 0, 180));
+
+    // send throttle position upstream to update ui
+    Serial.print("102,");
+    Serial.print(throttle, DEC);
+    Serial.println();
+  }
 }
 
 void serialEvent()

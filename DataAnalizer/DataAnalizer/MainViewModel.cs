@@ -22,6 +22,8 @@ namespace DataAnalizer
 		/// Ony for debuging
 		/// </summary>
 		private bool _Emulation;
+		private const string NO_PORTS = "No ports found";
+		private bool _DiscoveringPorts;
 
 		private ICommand _EmulateCommand;
 		private ICommand _ConnectCommand;
@@ -39,7 +41,9 @@ namespace DataAnalizer
 			StartPortsDiscovery();
 		}
 
-		private List<string> _Ports = new List<string>();
+        #region Properties
+
+        private List<string> _Ports = new List<string>();
 		public List<string> Ports
 		{
 			get
@@ -145,6 +149,23 @@ namespace DataAnalizer
 			}
 		}
 
+		private bool _EnableScale =true;
+		public bool EnableScale
+		{
+			get
+			{
+				return _EnableScale;
+			}
+			set
+			{
+				if (_EnableScale != value)
+				{
+					_EnableScale = value;
+					NotifyPropertyChanged();
+				}
+			}
+		}
+
 		private ObservableCollection<string> _Log = new ObservableCollection<string>();
 
 		public ObservableCollection<string> Log
@@ -175,7 +196,9 @@ namespace DataAnalizer
 			}
 		}
 
-		public void ReadCurrentPort()
+        #endregion
+
+        public void ReadCurrentPort()
 		{
 			while (_SerialPort?.IsOpen == true && !_TokenSource.IsCancellationRequested)
 			{
@@ -185,6 +208,9 @@ namespace DataAnalizer
 					if (!string.IsNullOrWhiteSpace(message))
 					{
 						var packet = new DataPacket(message);
+
+						Throttle = packet.IsSystem ? packet.Throttle : Throttle;
+
 						if (packet.NotEmpty())
 						{
 							Application.Current.Dispatcher.BeginInvoke(DispatcherPriority.DataBind, new Action(() =>
@@ -198,6 +224,68 @@ namespace DataAnalizer
 				catch (TimeoutException) { }
 				catch (Exception) { }
 			}
+		}
+
+		private void StartPortsDiscovery()
+		{
+			if (!_DiscoveringPorts)
+			{
+				LogMessage("COM ports discovery started...");
+
+				_DiscoveringPorts = true;
+				Task.Run(() =>
+				{
+					while (true)
+					{
+						string[] ports = SerialPort.GetPortNames();
+						if (ports?.Length > 0)
+						{
+							Application.Current.Dispatcher.BeginInvoke(DispatcherPriority.DataBind, new Action(() =>
+							{
+								var port = PortName;
+								Ports = new List<string>(ports);
+								if (!string.IsNullOrEmpty(port) && ports.Contains(port))
+								{
+									PortName = port;
+								}
+								else
+								{
+									PortName = Ports.FirstOrDefault();
+								}
+							}));
+						}
+						else
+						{
+							if (Connected && !_Emulation)
+							{
+								ConnectCommand.Execute(null);
+							}
+
+							Application.Current.Dispatcher.BeginInvoke(DispatcherPriority.DataBind, new Action(() =>
+							{
+								Ports = new List<string> { NO_PORTS };
+								PortName = NO_PORTS;
+							}));
+
+						}
+
+						Thread.Sleep(1000);
+					}
+				});
+			}
+		}
+
+		private bool HandShake()
+		{
+			var watch = new Stopwatch();
+			watch.Start();
+
+			while (watch.ElapsedMilliseconds < 4000 && _SerialPort.BytesToRead == 0)
+			{
+				Thread.Sleep(100);
+			}
+
+			return _SerialPort.BytesToRead == 1 && _SerialPort.ReadByte() == 101;
 		}
 
 		private void UpdateThrottlePosition()
@@ -276,57 +364,6 @@ namespace DataAnalizer
 			}
 		}
 
-		private const string NO_PORTS = "No ports found";
-		private bool _DiscoveringPorts;
-		private void StartPortsDiscovery()
-		{
-			if (!_DiscoveringPorts)
-			{
-				LogMessage("COM ports discovery started...");
-
-				_DiscoveringPorts = true;
-				Task.Run(() =>
-				{
-					while (true)
-					{
-						string[] ports = SerialPort.GetPortNames();
-						if (ports?.Length > 0)
-						{
-							Application.Current.Dispatcher.BeginInvoke(DispatcherPriority.DataBind, new Action(() =>
-							{
-								var port = PortName;
-								Ports = new List<string>(ports);
-								if (!string.IsNullOrEmpty(port) && ports.Contains(port))
-								{
-									PortName = port;
-								}
-								else
-								{
-									PortName = Ports.FirstOrDefault();
-								}
-							}));
-						}
-						else
-						{
-							if (Connected && !_Emulation)
-							{
-								ConnectCommand.Execute(null);
-							}
-
-							Application.Current.Dispatcher.BeginInvoke(DispatcherPriority.DataBind, new Action(() =>
-							{
-								Ports = new List<string> { NO_PORTS };
-								PortName = NO_PORTS;
-							}));
-
-						}
-
-						Thread.Sleep(1000);
-					}
-				});
-			}
-		}
-
 		public ICommand ConnectCommand
 		{
 			get
@@ -362,7 +399,8 @@ namespace DataAnalizer
 								var result = HandShake();
 								if (result)
 								{
-									_SerialPort.WriteLine($"101,{(int)MotorType},1;");
+									var es = EnableScale ? 1 : 0;
+									_SerialPort.WriteLine($"101,{(int)MotorType},{es};");
 									LogMessage($"SetSettings command sent");
 
 									result = HandShake();									
@@ -407,18 +445,6 @@ namespace DataAnalizer
 			}
 		}
 
-		private bool HandShake()
-		{
-			var watch = new Stopwatch();
-			watch.Start();
-
-			while (watch.ElapsedMilliseconds < 4000 && _SerialPort.BytesToRead == 0)
-			{
-				Thread.Sleep(100);
-			}
-
-			return _SerialPort.BytesToRead == 1 && _SerialPort.ReadByte() == 101;
-		}
 		public ICommand EmulateCommand
 		{
 			get

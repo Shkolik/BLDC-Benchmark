@@ -3,21 +3,12 @@ using RealTimeGraphX;
 using RealTimeGraphX.DataPoints;
 using RealTimeGraphX.WPF;
 using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Controls.DataVisualization.Charting;
-using System.Windows.Data;
-using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
-using System.Windows.Shapes;
 
 namespace DataAnalizer
 {
@@ -52,6 +43,21 @@ namespace DataAnalizer
             });
 
             ThrottleController.PushData(new Int32DataPoint(0), new Int32DataPoint(0));
+
+            RpmController = new WpfGraphController<Int32DataPoint, Int32DataPoint>();
+            RpmController.Range.MinimumY = 0;
+            RpmController.Range.MaximumY = 35000;
+            RpmController.Range.MaximumX = 100;
+            RpmController.Range.AutoY = true;
+            RpmController.Range.AutoYFallbackMode = GraphRangeAutoYFallBackMode.MinMax;
+
+            RpmController.DataSeriesCollection.Add(new WpfGraphDataSeries()
+            {
+                Name = "Series",
+                Stroke = Colors.IndianRed,
+            });
+
+            RpmController.PushData(new Int32DataPoint(0), new Int32DataPoint(0));
         }
 
         private void History_CollectionChanged(object sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
@@ -63,17 +69,22 @@ namespace DataAnalizer
                 foreach (var item in e.NewItems.OfType<DataPacket>())
                 {
                     ThrottleController.PushData(new Int32DataPoint(idx), new Int32DataPoint(item.Throttle));
+                    RpmController.PushData(new Int32DataPoint(idx), new Int32DataPoint(item.RPM));
                     idx++;
                 }
             }
             else if (e.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Reset)
             {
                 ThrottleController.ClearCommand.Execute(null);
+                RpmController.ClearCommand.Execute(null);
+
                 ThrottleController.PushData(new Int32DataPoint(0), new Int32DataPoint(0));
+                RpmController.PushData(new Int32DataPoint(0), new Int32DataPoint(0));
             }
         }
 
         public WpfGraphController<Int32DataPoint, Int32DataPoint> ThrottleController { get; set; }
+        public WpfGraphController<Int32DataPoint, Int32DataPoint> RpmController { get; set; }
 
         private void ViewModel_DataReady(object sender, string e)
         {

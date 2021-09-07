@@ -9,7 +9,7 @@
         
         KeyDown="Window_KeyDown">
     <DockPanel LastChildFill="True" DataContext="{Binding Path=ViewModel}">
-        <Grid DockPanel.Dock="Top" Height="100" x:Name="HeaderPanel">
+        <Grid DockPanel.Dock="Top" Height="130" x:Name="HeaderPanel">
             <Border  Background="Black"/>
             <Border Margin="0,0,0,1" Background="White">
                 <DockPanel LastChildFill="True" Margin="5">
@@ -20,6 +20,7 @@
                     </StackPanel>
                     <Grid DockPanel.Dock="Right" Width="250">
                         <Grid.RowDefinitions>
+                            <RowDefinition Height="*"/>
                             <RowDefinition Height="*"/>
                             <RowDefinition Height="*"/>
                             <RowDefinition Height="*"/>
@@ -41,6 +42,9 @@
                             ItemsSource="{Binding Source={local:EnumList {x:Type local:MotorType}}}"                                  
                             SelectedValue="{Binding Path=MotorType}" 
                             SelectedValuePath="Value" DisplayMemberPath="Key" 
+                                  IsEnabled="{Binding Path=Connected, Converter={StaticResource BoolInvertConverter}}"/>
+                        <CheckBox Content="Measure thrust" VerticalAlignment="Center" Margin="3" Grid.Row="3"
+                                  IsChecked="{Binding Path=EnableScale}"
                                   IsEnabled="{Binding Path=Connected, Converter={StaticResource BoolInvertConverter}}"/>
                         <StackPanel Grid.Column="1" Grid.RowSpan="3">
                             <Button  Width="60" Height="60" Margin="3" Command="{Binding Path=ConnectCommand}">
@@ -96,9 +100,14 @@
                 
             </Grid>
 
+            <local:WpfGraphControl Margin="10" MaxHeight="120" DockPanel.Dock="Bottom" Foreground="IndianRed"
+                                   Controller="{Binding RelativeSource={RelativeSource AncestorType=Window, Mode=FindAncestor}, Path=RpmController}" >
+                <TextBlock Text="RPM"/>
+            </local:WpfGraphControl>
+
             <local:WpfGraphControl Margin="10" MaxHeight="120" DockPanel.Dock="Bottom" 
                                    Controller="{Binding RelativeSource={RelativeSource AncestorType=Window, Mode=FindAncestor}, Path=ThrottleController}" >
-                <TextBlock Text="Test"/>
+                <TextBlock Text="THROTTLE"/>
             </local:WpfGraphControl>
 
             <StackPanel Orientation="Horizontal" DockPanel.Dock="Bottom" HorizontalAlignment="Right" Margin="0, 0, 10, 0">

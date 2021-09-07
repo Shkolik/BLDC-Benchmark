@@ -14,12 +14,6 @@ const char s_mode[] PROGMEM = "SELECT MODE";
 const char s_mode_stand[] PROGMEM = "CONNECTED";
 const char s_mode_hh[] PROGMEM = "HANDHELD";
 
-//main screen
-const char s_header1[] PROGMEM = "RPM:  VOLT: KV:";
-const char s_header2[] PROGMEM = "THRUST:  A:";
-const char s_header3[] PROGMEM = "THROTTLE:";
-
-const char *const l_headers[] PROGMEM = {s_header1, s_header2, s_header3};
 const char *const l_settings_stand[] PROGMEM = {s_mode, s_motorType, s_enableScale};
 const char *const l_settings_hh[] PROGMEM = {s_mode, s_bladesCount, s_enableScale};
 const char *const l_motorTypes[] PROGMEM = {s_motor14p, s_motor12p};
